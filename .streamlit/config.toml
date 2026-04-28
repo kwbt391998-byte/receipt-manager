@@ -1,0 +1,13 @@
+[theme]
+primaryColor = "#FF6B6B"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F8F9FA"
+textColor = "#262730"
+font = "sans serif"
+
+[server]
+# アップロード上限 (MB) - 領収書PDF/画像用
+maxUploadSize = 10
+
+[browser]
+gatherUsageStats = false

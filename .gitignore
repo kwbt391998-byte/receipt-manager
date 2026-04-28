@@ -1,0 +1,55 @@
+# ────────────────────────────────────────────────
+# 絶対にGitHubにアップしてはいけないファイル
+# ────────────────────────────────────────────────
+
+# APIキー・環境変数
+.env
+.env.*
+!.env.example
+
+# Google 認証情報（旧OAuth方式・サービスアカウント）
+oauth_client.json
+oauth_token.json
+service_account.json
+credentials.json
+token.json
+gcp-credentials.json
+
+# Streamlit Secrets（ローカル確認用）
+.streamlit/secrets.toml
+
+# ────────────────────────────────────────────────
+# データ（GitHubに上げないローカルデータ）
+# ────────────────────────────────────────────────
+
+# SQLiteデータベース
+receipts.db
+
+# アップロードされた領収書ファイル
+receipts/
+
+# ────────────────────────────────────────────────
+# Python
+# ────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# ────────────────────────────────────────────────
+# OS・エディタ
+# ────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Claude Code
+.claude/
