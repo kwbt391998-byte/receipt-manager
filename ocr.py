@@ -58,7 +58,7 @@ def extract_receipt(file_path: str) -> dict:
         part = img
 
     response = client.models.generate_content(
-        model="gemini-1.5-flash-latest",
+        model="gemini-2.0-flash",
         contents=[part, PROMPT],
     )
 
