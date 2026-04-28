@@ -118,7 +118,7 @@ if page == "アップロード":
                 )
 
             with col_form:
-                key = save_path.name.replace(".", "_")
+                key = save_path.name.replace(".", "_").replace(" ", "_").replace("-", "_")
 
                 ocr_result: dict = {}
                 if st.button(f"OCRで自動入力", key=f"ocr_{key}"):
