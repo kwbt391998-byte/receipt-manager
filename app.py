@@ -30,6 +30,28 @@ CATEGORIES = [
 
 st.set_page_config(page_title="領収書管理", page_icon="🧾", layout="wide")
 
+# ── パスワード認証 ───────────────────────────────────────────────────────────
+def _check_password() -> bool:
+    correct = st.secrets.get("APP_PASSWORD", "")
+    if not correct:
+        return True  # Secrets未設定時はパスワードなしで通過（ローカル開発用）
+    if st.session_state.get("authenticated"):
+        return True
+
+    st.title("🔐 領収書管理")
+    st.markdown("アクセスにはパスワードが必要です。")
+    pw = st.text_input("パスワード", type="password", placeholder="パスワードを入力")
+    if st.button("ログイン", use_container_width=True):
+        if pw == correct:
+            st.session_state["authenticated"] = True
+            st.rerun()
+        else:
+            st.error("パスワードが違います")
+    return False
+
+if not _check_password():
+    st.stop()
+
 # ── スマホ対応CSS ────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
