@@ -40,7 +40,7 @@ def _get_model() -> genai.GenerativeModel:
         if not api_key:
             raise ValueError("GOOGLE_API_KEY が設定されていません。Streamlit Secrets に追加してください。")
         genai.configure(api_key=api_key)
-        _model = genai.GenerativeModel("gemini-1.5-flash")
+        _model = genai.GenerativeModel("gemini-2.0-flash")
     return _model
 
 
