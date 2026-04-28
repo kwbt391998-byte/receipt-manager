@@ -1,85 +1,93 @@
 from __future__ import annotations
 import io
-import json
-import os
 import re
 from pathlib import Path
 from typing import Optional
 
-from google import genai
-from google.genai import types
-
-_client = None
-
-PROMPT = """あなたは領収書OCRの専門家です。
-画像から以下の情報を正確に読み取り、必ずJSONのみで返してください。
-JSONのキーと値の形式:
-{
-  "date": "YYYY-MM-DD形式（不明はnull）",
-  "payee": "支払先・店名（不明はnull）",
-  "amount": 金額（税込の合計金額、整数、円単位、不明はnull）,
-  "tax_amount": 消費税額（整数、円単位、不明はnull）,
-  "purpose": "用途・品目の概要（不明はnull）",
-  "category": "カテゴリー（交通費/消耗品/通信費/交際費/研修費/書籍代/雑費/医療費/その他 から最適なもの）",
-  "memo": "その他メモや特記事項（なければnull）"
-}
-Markdown、コードブロック、説明文は不要です。JSONのみ返してください。
-この領収書から情報を抽出してください。"""
-
-
-def _get_client() -> genai.Client:
-    global _client
-    if _client is None:
-        api_key = os.environ.get("GOOGLE_API_KEY")
-        if not api_key:
-            try:
-                import streamlit as st
-                api_key = st.secrets.get("GOOGLE_API_KEY")
-            except Exception:
-                pass
-        if not api_key:
-            raise ValueError("GOOGLE_API_KEY が設定されていません。Streamlit Secrets に追加してください。")
-        _client = genai.Client(api_key=api_key)
-    return _client
+import pytesseract
+from PIL import Image
 
 
 def extract_receipt(file_path: str) -> dict:
-    client = _get_client()
     path = Path(file_path)
 
-    with open(file_path, "rb") as f:
-        file_bytes = f.read()
-
     if path.suffix.lower() == ".pdf":
-        part = types.Part.from_bytes(data=file_bytes, mime_type="application/pdf")
+        from pdf2image import convert_from_path
+        images = convert_from_path(file_path, dpi=200)
+        if not images:
+            return _empty()
+        img = images[0]
     else:
-        import PIL.Image
-        img = PIL.Image.open(io.BytesIO(file_bytes))
-        part = img
+        img = Image.open(file_path)
 
-    response = client.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=[part, PROMPT],
-    )
+    text = pytesseract.image_to_string(img, lang="jpn+eng")
+    return _parse(text)
 
-    raw = response.text.strip()
-    raw = re.sub(r"^```[a-z]*\n?", "", raw)
-    raw = re.sub(r"\n?```$", "", raw)
 
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        data = {}
+def _parse(text: str) -> dict:
+    lines = [l.strip() for l in text.split("\n") if l.strip()]
+
+    # ── 日付 ────────────────────────────────────────────────
+    date = None
+    for line in lines:
+        m = re.search(r"(\d{4})[年/\-](\d{1,2})[月/\-](\d{1,2})", line)
+        if m:
+            date = f"{int(m.group(1)):04d}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+            break
+        m = re.search(r"R(\d+)[年](\d{1,2})[月](\d{1,2})", line)
+        if m:
+            year = 2018 + int(m.group(1))
+            date = f"{year:04d}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+            break
+
+    # ── 合計金額 ─────────────────────────────────────────────
+    amount = None
+    for pattern in [
+        r"合計[^\d]*(\d[\d,]+)",
+        r"税込[^\d]*(\d[\d,]+)",
+        r"お支払[^\d]*(\d[\d,]+)",
+        r"[¥￥]\s*(\d[\d,]+)",
+    ]:
+        for line in lines:
+            m = re.search(pattern, line)
+            if m:
+                amount = _to_int(m.group(1))
+                break
+        if amount:
+            break
+
+    # ── 消費税 ───────────────────────────────────────────────
+    tax = None
+    for pattern in [r"消費税[^\d]*(\d[\d,]+)", r"税額[^\d]*(\d[\d,]+)"]:
+        for line in lines:
+            m = re.search(pattern, line)
+            if m:
+                tax = _to_int(m.group(1))
+                break
+        if tax:
+            break
+
+    # ── 支払先（最初の意味ある行） ───────────────────────────
+    payee = None
+    for line in lines[:8]:
+        if len(line) >= 2 and not re.match(r"^[\d\s/年月日¥￥\-\.]+$", line):
+            payee = line
+            break
 
     return {
-        "date": data.get("date"),
-        "payee": data.get("payee"),
-        "amount": _to_int(data.get("amount")),
-        "tax_amount": _to_int(data.get("tax_amount")),
-        "purpose": data.get("purpose"),
-        "category": data.get("category"),
-        "memo": data.get("memo"),
+        "date": date,
+        "payee": payee,
+        "amount": amount,
+        "tax_amount": tax,
+        "purpose": None,
+        "category": "その他",
+        "memo": None,
     }
+
+
+def _empty() -> dict:
+    return {"date": None, "payee": None, "amount": None,
+            "tax_amount": None, "purpose": None, "category": "その他", "memo": None}
 
 
 def _to_int(val) -> Optional[int]:
