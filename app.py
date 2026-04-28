@@ -17,7 +17,6 @@ import pandas as pd
 import streamlit as st
 
 import db
-import ocr
 import sheets as sheets_mod
 
 # Streamlit Cloud ではファイルシステムが一時的なため /tmp を使用
@@ -127,38 +126,14 @@ if page == "アップロード":
                 )
 
             with col_form:
-
-                ocr_result: dict = {}
-                if st.button(f"OCRで自動入力", key=f"ocr_{key}"):
-                    with st.spinner("Claude OCR 処理中..."):
-                        try:
-                            ocr_result = ocr.extract_receipt(str(save_path))
-                            st.success("OCR完了")
-                        except Exception as e:
-                            st.error(f"OCRエラー: {e}")
-
-                ocr_state = st.session_state.get(f"ocr_{key}_data", ocr_result)
-                if ocr_result:
-                    st.session_state[f"ocr_{key}_data"] = ocr_result
-                    ocr_state = ocr_result
-
-                date_val     = ocr_state.get("date", "") or ""
-                payee_val    = ocr_state.get("payee", "") or ""
-                amount_val   = ocr_state.get("amount")
-                tax_val      = ocr_state.get("tax_amount")
-                purpose_val  = ocr_state.get("purpose", "") or ""
-                cat_val      = ocr_state.get("category", "") or ""
-                memo_val     = ocr_state.get("memo", "") or ""
-
                 with st.form(key=f"form_{key}"):
-                    date    = st.text_input("日付 (YYYY-MM-DD)", value=date_val)
-                    payee   = st.text_input("支払先", value=payee_val)
-                    amount  = st.number_input("金額（円）", value=int(amount_val) if amount_val else 0, min_value=0)
-                    tax     = st.number_input("税額（円）", value=int(tax_val) if tax_val else 0, min_value=0)
-                    purpose = st.text_input("用途", value=purpose_val)
-                    cat_idx = CATEGORIES.index(cat_val) if cat_val in CATEGORIES else len(CATEGORIES) - 1
-                    category = st.selectbox("カテゴリー", CATEGORIES, index=cat_idx)
-                    memo    = st.text_area("メモ", value=memo_val)
+                    date    = st.text_input("日付 (YYYY-MM-DD)", placeholder="例: 2026-04-29")
+                    payee   = st.text_input("支払先", placeholder="例: セブンイレブン")
+                    amount  = st.number_input("金額（円）", value=0, min_value=0)
+                    tax     = st.number_input("税額（円）", value=0, min_value=0)
+                    purpose = st.text_input("用途", placeholder="例: 文房具購入")
+                    category = st.selectbox("カテゴリー", CATEGORIES)
+                    memo    = st.text_area("メモ")
 
                     if st.form_submit_button("💾 保存"):
                         dup = db.get_possible_duplicate(save_path.name, amount or None)
