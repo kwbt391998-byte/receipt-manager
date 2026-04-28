@@ -1,40 +1,17 @@
 from __future__ import annotations
 import base64
+import io
 import json
+import os
 import re
 from pathlib import Path
 from typing import Optional
 
-import anthropic
+import google.generativeai as genai
 
-_client: Optional[anthropic.Anthropic] = None
+_model = None
 
-
-def _get_client() -> anthropic.Anthropic:
-    global _client
-    if _client is None:
-        _client = anthropic.Anthropic()
-    return _client
-
-
-def _encode_image(file_path: str) -> tuple[str, str]:
-    """Returns (base64_data, media_type)"""
-    path = Path(file_path)
-    suffix = path.suffix.lower()
-    media_map = {
-        ".jpg": "image/jpeg",
-        ".jpeg": "image/jpeg",
-        ".png": "image/png",
-        ".gif": "image/gif",
-        ".webp": "image/webp",
-        ".pdf": "application/pdf",
-    }
-    media_type = media_map.get(suffix, "image/jpeg")
-    with open(file_path, "rb") as f:
-        return base64.standard_b64encode(f.read()).decode("utf-8"), media_type
-
-
-SYSTEM_PROMPT = """あなたは領収書OCRの専門家です。
+PROMPT = """あなたは領収書OCRの専門家です。
 画像から以下の情報を正確に読み取り、必ずJSONのみで返してください。
 JSONのキーと値の形式:
 {
@@ -46,50 +23,44 @@ JSONのキーと値の形式:
   "category": "カテゴリー（交通費/消耗品/通信費/交際費/研修費/書籍代/雑費/医療費/その他 から最適なもの）",
   "memo": "その他メモや特記事項（なければnull）"
 }
-Markdown、コードブロック、説明文は不要です。JSONのみ返してください。"""
+Markdown、コードブロック、説明文は不要です。JSONのみ返してください。
+この領収書から情報を抽出してください。"""
+
+
+def _get_model() -> genai.GenerativeModel:
+    global _model
+    if _model is None:
+        api_key = os.environ.get("GOOGLE_API_KEY")
+        if not api_key:
+            try:
+                import streamlit as st
+                api_key = st.secrets.get("GOOGLE_API_KEY")
+            except Exception:
+                pass
+        if not api_key:
+            raise ValueError("GOOGLE_API_KEY が設定されていません。Streamlit Secrets に追加してください。")
+        genai.configure(api_key=api_key)
+        _model = genai.GenerativeModel("gemini-1.5-flash")
+    return _model
 
 
 def extract_receipt(file_path: str) -> dict:
-    """
-    Returns dict with keys: date, payee, amount, tax_amount, purpose, category, memo
-    All values may be None if not found.
-    """
-    client = _get_client()
-    b64, media_type = _encode_image(file_path)
+    model = _get_model()
+    path = Path(file_path)
 
-    if media_type == "application/pdf":
-        content = [
-            {
-                "type": "document",
-                "source": {
-                    "type": "base64",
-                    "media_type": "application/pdf",
-                    "data": b64,
-                },
-            },
-            {"type": "text", "text": "この領収書から情報を抽出してください。"},
-        ]
+    with open(file_path, "rb") as f:
+        file_bytes = f.read()
+
+    if path.suffix.lower() == ".pdf":
+        b64 = base64.standard_b64encode(file_bytes).decode()
+        parts = [{"mime_type": "application/pdf", "data": b64}, PROMPT]
     else:
-        content = [
-            {
-                "type": "image",
-                "source": {
-                    "type": "base64",
-                    "media_type": media_type,
-                    "data": b64,
-                },
-            },
-            {"type": "text", "text": "この領収書から情報を抽出してください。"},
-        ]
+        import PIL.Image
+        img = PIL.Image.open(io.BytesIO(file_bytes))
+        parts = [img, PROMPT]
 
-    response = client.messages.create(
-        model="claude-opus-4-7",
-        max_tokens=1024,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": content}],
-    )
-
-    raw = response.content[0].text.strip()
+    response = model.generate_content(parts)
+    raw = response.text.strip()
     raw = re.sub(r"^```[a-z]*\n?", "", raw)
     raw = re.sub(r"\n?```$", "", raw)
 
