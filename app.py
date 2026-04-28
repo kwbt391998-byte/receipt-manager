@@ -93,16 +93,25 @@ if page == "アップロード":
             st.divider()
             col_img, col_form = st.columns([1, 1])
 
-            # Save file
-            save_path = RECEIPTS_DIR / up_file.name
-            counter = 1
-            while save_path.exists():
-                stem = Path(up_file.name).stem
-                suffix = Path(up_file.name).suffix
-                save_path = RECEIPTS_DIR / f"{stem}_{counter}{suffix}"
-                counter += 1
+            # キーはオリジナルのファイル名から生成（リラン時も変わらないよう固定）
+            key = up_file.name.replace(".", "_").replace(" ", "_").replace("-", "_")
 
-            save_path.write_bytes(up_file.getvalue())
+            # 保存先をsession_stateで固定（リランのたびにカウンターが増えるバグを防止）
+            sp_key = f"save_path_{key}"
+            if sp_key not in st.session_state:
+                save_path = RECEIPTS_DIR / up_file.name
+                counter = 1
+                while save_path.exists():
+                    stem = Path(up_file.name).stem
+                    suffix = Path(up_file.name).suffix
+                    save_path = RECEIPTS_DIR / f"{stem}_{counter}{suffix}"
+                    counter += 1
+                save_path.write_bytes(up_file.getvalue())
+                st.session_state[sp_key] = save_path
+            else:
+                save_path = st.session_state[sp_key]
+                if not save_path.exists():
+                    save_path.write_bytes(up_file.getvalue())
 
             with col_img:
                 if up_file.type != "application/pdf":
@@ -118,7 +127,6 @@ if page == "アップロード":
                 )
 
             with col_form:
-                key = save_path.name.replace(".", "_").replace(" ", "_").replace("-", "_")
 
                 ocr_result: dict = {}
                 if st.button(f"OCRで自動入力", key=f"ocr_{key}"):
