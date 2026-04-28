@@ -49,7 +49,7 @@ def export_to_sheet(
     except gspread.exceptions.WorksheetNotFound:
         ws = ss.add_worksheet(sheet_name, rows=len(rows) + 5, cols=10)
 
-    header = ["ID", "日付", "支払先", "金額", "税額", "用途", "カテゴリー", "メモ", "ファイル名", "登録日"]
+    header = ["ID", "日付", "支払先", "金額", "税額", "用途", "カテゴリー", "メモ", "登録番号", "ファイル名", "登録日"]
     data = [header]
     for r in rows:
         data.append([
@@ -61,6 +61,7 @@ def export_to_sheet(
             r.get("purpose", ""),
             r.get("category", ""),
             r.get("memo", ""),
+            r.get("invoice_number", ""),
             r.get("file_name", ""),
             r.get("created_at", ""),
         ])

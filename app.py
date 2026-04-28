@@ -165,6 +165,7 @@ if page == "アップロード":
                     purpose = st.text_input("用途", placeholder="例: 文房具購入")
                     category = st.selectbox("カテゴリー", CATEGORIES)
                     memo    = st.text_area("メモ")
+                    invoice_number = st.text_input("適格請求書番号（インボイス）", placeholder="例: T1234567890123")
 
                     if st.form_submit_button("💾 保存"):
                         dup = db.get_possible_duplicate(save_path.name, amount or None)
@@ -181,6 +182,7 @@ if page == "アップロード":
                             purpose=purpose or None,
                             category=category,
                             memo=memo or None,
+                            invoice_number=invoice_number or None,
                         )
                         st.success(f"✅ 保存しました: {save_path.name}")
                         # Clear OCR state
@@ -248,6 +250,7 @@ elif page == "一覧・編集":
                     cat_i     = CATEGORIES.index(r["category"]) if r.get("category") in CATEGORIES else 0
                     e_cat     = st.selectbox("カテゴリー", CATEGORIES, index=cat_i)
                     e_memo    = st.text_area("メモ", value=r.get("memo") or "")
+                    e_invoice = st.text_input("適格請求書番号（インボイス）", value=r.get("invoice_number") or "")
 
                     col_s, col_d = st.columns(2)
                     with col_s:
@@ -256,6 +259,7 @@ elif page == "一覧・編集":
                                 eid, e_date or None, e_payee or None,
                                 e_amount or None, e_tax or None,
                                 e_purpose or None, e_cat, e_memo or None,
+                                invoice_number=e_invoice or None,
                             )
                             st.success("更新しました")
                             st.rerun()
@@ -392,7 +396,7 @@ elif page == "エクスポート":
         buf = io.StringIO()
         writer = csv.DictWriter(
             buf,
-            fieldnames=["id", "date", "payee", "amount", "tax_amount", "purpose", "category", "memo", "file_name", "created_at"],
+            fieldnames=["id", "date", "payee", "amount", "tax_amount", "purpose", "category", "memo", "invoice_number", "file_name", "created_at"],
         )
         writer.writeheader()
         for r in recs:

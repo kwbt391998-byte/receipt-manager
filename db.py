@@ -17,20 +17,26 @@ def init_db() -> None:
     with get_conn() as conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS receipts (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                file_name   TEXT    NOT NULL,
-                file_path   TEXT    NOT NULL,
-                date        TEXT,
-                payee       TEXT,
-                amount      INTEGER,
-                tax_amount  INTEGER,
-                purpose     TEXT,
-                category    TEXT,
-                memo        TEXT,
-                created_at  TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
-                updated_at  TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                file_name       TEXT    NOT NULL,
+                file_path       TEXT    NOT NULL,
+                date            TEXT,
+                payee           TEXT,
+                amount          INTEGER,
+                tax_amount      INTEGER,
+                purpose         TEXT,
+                category        TEXT,
+                memo            TEXT,
+                invoice_number  TEXT,
+                created_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+                updated_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
             )
         """)
+        # 既存DBへの列追加（マイグレーション）
+        try:
+            conn.execute("ALTER TABLE receipts ADD COLUMN invoice_number TEXT")
+        except Exception:
+            pass
         conn.commit()
 
 
@@ -44,13 +50,14 @@ def insert_receipt(
     purpose: Optional[str] = None,
     category: Optional[str] = None,
     memo: Optional[str] = None,
+    invoice_number: Optional[str] = None,
 ) -> int:
     with get_conn() as conn:
         cur = conn.execute(
             """INSERT INTO receipts
-               (file_name, file_path, date, payee, amount, tax_amount, purpose, category, memo)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (file_name, file_path, date, payee, amount, tax_amount, purpose, category, memo),
+               (file_name, file_path, date, payee, amount, tax_amount, purpose, category, memo, invoice_number)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (file_name, file_path, date, payee, amount, tax_amount, purpose, category, memo, invoice_number),
         )
         conn.commit()
         return cur.lastrowid
@@ -65,14 +72,15 @@ def update_receipt(
     purpose: Optional[str],
     category: Optional[str],
     memo: Optional[str],
+    invoice_number: Optional[str] = None,
 ) -> None:
     with get_conn() as conn:
         conn.execute(
             """UPDATE receipts SET
                date=?, payee=?, amount=?, tax_amount=?, purpose=?, category=?, memo=?,
-               updated_at=datetime('now','localtime')
+               invoice_number=?, updated_at=datetime('now','localtime')
                WHERE id=?""",
-            (date, payee, amount, tax_amount, purpose, category, memo, receipt_id),
+            (date, payee, amount, tax_amount, purpose, category, memo, invoice_number, receipt_id),
         )
         conn.commit()
 
