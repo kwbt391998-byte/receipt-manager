@@ -108,6 +108,14 @@ def get_receipts_by_year(year: int) -> list[dict]:
         return [dict(r) for r in rows]
 
 
+def get_unique_payees() -> list[str]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT payee FROM receipts WHERE payee IS NOT NULL AND payee != '' ORDER BY payee"
+        ).fetchall()
+        return [row[0] for row in rows]
+
+
 def get_possible_duplicate(file_name: str, amount: Optional[int]) -> list[dict]:
     with get_conn() as conn:
         rows = conn.execute(

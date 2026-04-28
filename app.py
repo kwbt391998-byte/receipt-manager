@@ -128,7 +128,16 @@ if page == "アップロード":
             with col_form:
                 with st.form(key=f"form_{key}"):
                     date    = st.text_input("日付 (YYYY-MM-DD)", placeholder="例: 2026-04-29")
-                    payee   = st.text_input("支払先", placeholder="例: セブンイレブン")
+
+                    # 支払先：過去の履歴から選択 or 新規入力
+                    past_payees = db.get_unique_payees()
+                    if past_payees:
+                        payee_sel = st.selectbox("支払先（履歴から選択）", [""] + past_payees)
+                        payee_new = st.text_input("または新規入力", placeholder="例: セブンイレブン")
+                        payee = payee_new.strip() if payee_new.strip() else payee_sel
+                    else:
+                        payee = st.text_input("支払先", placeholder="例: セブンイレブン")
+
                     amount  = st.number_input("金額（円）", value=0, min_value=0)
                     tax     = st.number_input("税額（円）", value=0, min_value=0)
                     purpose = st.text_input("用途", placeholder="例: 文房具購入")
